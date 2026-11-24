@@ -13,14 +13,6 @@
   hosts: servers
   gather_facts: false
 
-  pre_tasks:
-    - name: Kiểm tra mật khẩu đã được nhập qua -K hoặc -k chưa
-      ansible.builtin.fail:
-        msg: "❌ Bạn chưa nhập mật khẩu cần kiểm tra! Vui lòng chạy với cờ -K (hoặc -k -K), ví dụ: ansible-playbook playbook_verify.yml -K"
-      when: (ansible_become_password is not defined or ansible_become_password | length == 0) and
-            (ansible_password is not defined or ansible_password | length == 0)
-      run_once: true
-
   tasks:
     - name: Kiểm tra kết nối SSH (whoami)
       ansible.builtin.command: whoami

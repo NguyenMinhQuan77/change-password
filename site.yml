@@ -34,13 +34,6 @@
         confirm_password: "{{ confirm_password if (confirm_password | default('') | length > 0) else input_confirm_password }}"
       no_log: true
 
-    - name: Kiểm tra cờ -K (mật khẩu cũ) đã được điền chưa
-      ansible.builtin.fail:
-        msg: "❌ Bạn chưa nhập mật khẩu cũ! Vui lòng chạy lại với cờ -K (hoặc -k -K), ví dụ: ansible-playbook site.yml -K"
-      when: (ansible_become_password is not defined or ansible_become_password | length == 0) and
-            (ansible_password is not defined or ansible_password | length == 0)
-      run_once: true
-
     - name: Kiểm tra tính hợp lệ của mật khẩu mới
       ansible.builtin.fail:
         msg: >
