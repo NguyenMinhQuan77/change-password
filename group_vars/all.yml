@@ -1,0 +1,18 @@
+---
+# ==============================================================================
+# Biến cấu hình toàn cục cho Ansible đổi mật khẩu VM
+# ==============================================================================
+
+# User cần đổi mật khẩu (mặc định hunghv, có thể đổi user khác qua -e "target_user=...")
+target_user: "hunghv"
+
+# Tài khoản SSH kết nối ban đầu
+ansible_user: "hunghv"
+ansible_port: 22
+ansible_become: true
+ansible_become_method: sudo
+
+# Tự động đồng bộ:
+# Nếu bạn chạy với -K (--ask-become-pass), mật khẩu sudo sẽ tự động được dùng làm mật khẩu SSH
+ansible_password: "{{ ansible_ssh_pass | default(ansible_password | default(ansible_become_password | default(ansible_become_pass, true), true), true) }}"
+ansible_become_password: "{{ ansible_become_pass | default(ansible_become_password | default(ansible_password, true), true) }}"

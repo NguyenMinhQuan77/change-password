@@ -1,0 +1,60 @@
+---
+# ==============================================================================
+# Playbook đổi mật khẩu user hunghv trên danh sách VM
+#
+# Cách chạy:
+#   ansible-playbook site.yml -K
+#   hoặc:
+#   ansible-playbook site.yml -k -K
+#
+# Giải thích cờ:
+#   -K (--ask-become-pass) : Điền mật khẩu cũ để leo quyền sudo (tự dùng cho SSH nếu không gõ -k)
+#   -k (--ask-pass)        : Điền mật khẩu SSH cũ nếu mật khẩu SSH khác mật khẩu sudo
+# ==============================================================================
+
+- name: Đổi mật khẩu user hunghv trên các VM
+  hosts: servers
+  gather_facts: false
+
+  vars_prompt:
+    - name: input_new_password
+      prompt: "🔒 Nhập mật khẩu MỚI cho user hunghv"
+      private: true
+      default: ""
+
+    - name: input_confirm_password
+      prompt: "🔒 Xác nhận lại mật khẩu MỚI"
+      private: true
+      default: ""
+
+  pre_tasks:
+    - name: Xác định mật khẩu mới
+      ansible.builtin.set_fact:
+        new_password: "{{ new_password if (new_password | default('') | length > 0) else input_new_password }}"
+        confirm_password: "{{ confirm_password if (confirm_password | default('') | length > 0) else input_confirm_password }}"
+      no_log: true
+
+    - name: Kiểm tra cờ -K (mật khẩu cũ) đã được điền chưa
+      ansible.builtin.fail:
+        msg: "❌ Bạn chưa nhập mật khẩu cũ! Vui lòng chạy lại với cờ -K (hoặc -k -K), ví dụ: ansible-playbook site.yml -K"
+      when: (ansible_become_password is not defined or ansible_become_password | length == 0) and
+            (ansible_password is not defined or ansible_password | length == 0)
+      run_once: true
+
+    - name: Kiểm tra tính hợp lệ của mật khẩu mới
+      ansible.builtin.fail:
+        msg: >
+          ❌ Lỗi mật khẩu mới:
+          {% if new_password | length == 0 %}
+          - Mật khẩu MỚI không được để trống!
+          {% endif %}
+          {% if confirm_password | length > 0 and new_password != confirm_password %}
+          - Mật khẩu MỚI và mật khẩu XÁC NHẬN không khớp nhau!
+          {% endif %}
+      when: >
+        (new_password | length == 0) or
+        (confirm_password | length > 0 and new_password != confirm_password)
+      run_once: true
+
+  roles:
+    - change_password

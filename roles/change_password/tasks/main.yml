@@ -1,0 +1,37 @@
+---
+# ==============================================================================
+# Role: change_password
+# Thực hiện đổi mật khẩu user trên Linux và xác thực ngay lập tức
+# ==============================================================================
+
+- name: "Kiểm tra user '{{ target_user }}' có tồn tại trên VM không"
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ target_user }}"
+  become: false
+
+- name: "Đổi mật khẩu cho user '{{ target_user }}' (sử dụng chpasswd qua stdin an toàn)"
+  ansible.builtin.command: chpasswd
+  args:
+    stdin: "{{ target_user }}:{{ new_password }}\n"
+  become: true
+  no_log: true
+
+- name: "Xóa session/cache sudo cũ (sudo -k)"
+  ansible.builtin.command: sudo -k
+  become: false
+  changed_when: false
+
+- name: "Xác thực mật khẩu MỚI qua sudo"
+  ansible.builtin.command: sudo -S -p '' whoami
+  args:
+    stdin: "{{ new_password }}\n"
+  become: false
+  register: sudo_verify
+  changed_when: false
+  failed_when: sudo_verify.rc != 0 or 'root' not in sudo_verify.stdout
+  no_log: true
+
+- name: "Thông báo kết quả"
+  ansible.builtin.debug:
+    msg: "✅ [THÀNH CÔNG] {{ inventory_hostname }}: Mật khẩu của user '{{ target_user }}' đã được đổi và xác thực sudo thành công!"

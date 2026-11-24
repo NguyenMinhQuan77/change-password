@@ -1,0 +1,38 @@
+---
+# ==============================================================================
+# Playbook kiểm tra kết nối SSH và quyền sudo của user hunghv
+# Dùng để verify trước hoặc sau khi đổi mật khẩu
+#
+# Cách chạy:
+#   ansible-playbook playbook_verify.yml -K
+#   hoặc:
+#   ansible-playbook playbook_verify.yml -k -K
+# ==============================================================================
+
+- name: Kiểm tra xác thực SSH và sudo trên danh sách VM
+  hosts: servers
+  gather_facts: false
+
+  pre_tasks:
+    - name: Kiểm tra mật khẩu đã được nhập qua -K hoặc -k chưa
+      ansible.builtin.fail:
+        msg: "❌ Bạn chưa nhập mật khẩu cần kiểm tra! Vui lòng chạy với cờ -K (hoặc -k -K), ví dụ: ansible-playbook playbook_verify.yml -K"
+      when: (ansible_become_password is not defined or ansible_become_password | length == 0) and
+            (ansible_password is not defined or ansible_password | length == 0)
+      run_once: true
+
+  tasks:
+    - name: Kiểm tra kết nối SSH (whoami)
+      ansible.builtin.command: whoami
+      register: ssh_check
+      changed_when: false
+
+    - name: Kiểm tra quyền sudo (sudo whoami)
+      ansible.builtin.command: sudo -S whoami
+      become: true
+      register: sudo_check
+      changed_when: false
+
+    - name: Báo cáo kết quả
+      ansible.builtin.debug:
+        msg: "✅ [OK] {{ inventory_hostname }}: SSH thành công (user={{ ssh_check.stdout }}), Sudo thành công (role={{ sudo_check.stdout }})"
