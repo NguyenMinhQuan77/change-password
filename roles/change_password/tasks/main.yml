@@ -1,7 +1,7 @@
 ---
 # ==============================================================================
 # Role: change_password
-# Thực hiện đổi mật khẩu user trên Linux và xác thực ngay lập tức
+# Đổi mật khẩu an toàn và tương thích với mọi môi trường Linux
 # ==============================================================================
 
 - name: "Kiểm tra user '{{ target_user }}' có tồn tại trên VM không"
@@ -10,12 +10,35 @@
     key: "{{ target_user }}"
   become: false
 
-- name: "Đổi mật khẩu cho user '{{ target_user }}' (sử dụng chpasswd qua stdin an toàn)"
-  ansible.builtin.command: chpasswd
+- name: "Đổi mật khẩu cho user '{{ target_user }}' (sử dụng Ansible user module)"
+  ansible.builtin.user:
+    name: "{{ target_user }}"
+    password: "{{ new_password | password_hash('sha512') }}"
+    update_password: always
+  become: true
+  no_log: true
+  register: user_mod_result
+  ignore_errors: true
+
+- name: "Đổi mật khẩu dự phòng bằng /usr/sbin/chpasswd (nếu user module lỗi)"
+  ansible.builtin.command: /usr/sbin/chpasswd
   args:
     stdin: "{{ target_user }}:{{ new_password }}\n"
   become: true
   no_log: true
+  when: user_mod_result is failed
+  register: chpasswd_result
+  ignore_errors: true
+
+- name: "Báo lỗi chi tiết nếu cả 2 cách đổi mật khẩu đều thất bại"
+  ansible.builtin.fail:
+    msg:
+      - "❌ Đổi mật khẩu thất bại trên {{ inventory_hostname }}!"
+      - "Lỗi module user: {{ user_mod_result.msg | default('N/A') }}"
+      - "Lỗi chpasswd: {{ (chpasswd_result.stderr | default(chpasswd_result.msg | default('N/A'))) if (chpasswd_result is defined) else 'N/A' }}"
+  when:
+    - user_mod_result is failed
+    - (chpasswd_result is not defined or chpasswd_result is failed)
 
 - name: "Xóa session/cache sudo cũ (sudo -k)"
   ansible.builtin.command: sudo -k
