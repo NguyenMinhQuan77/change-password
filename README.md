@@ -39,16 +39,21 @@ Mở file `inventory.ini` và thêm/bỏ chú thích (`#`) các IP máy chủ c�
 
 ### 2. Chạy đổi mật khẩu bằng lệnh `ansible-playbook`
 
-Chỉ cần chạy lệnh sau:
+Chỉ cần chạy lệnh sau (dùng cả `-k` và `-K`):
 ```bash
-ansible-playbook site.yml -K
+ansible-playbook site.yml -k -K
 ```
-*(Hoặc dùng `-k -K` nếu mật khẩu SSH và mật khẩu sudo của bạn khác nhau: `ansible-playbook site.yml -k -K`)*
+
+#### 👉 Giải thích:
+- `-k` (`--ask-pass`): Hỏi mật khẩu **SSH** của user `hunghv` để kết nối vào máy.
+- `-K` (`--ask-become-pass`): Hỏi mật khẩu **sudo** của user `hunghv` để nâng quyền root.
+*(Nếu mật khẩu SSH và mật khẩu sudo giống nhau, bạn chỉ cần gõ cùng một mật khẩu ở cả 2 câu hỏi).*
 
 #### 👉 Trình tự Ansible sẽ hỏi bạn:
-1. `BECOME password[sudo]:` ➔ **Nhập mật khẩu CŨ của user hunghv** (Ansible sẽ dùng mật khẩu này để SSH vào VM và leo quyền sudo).
-2. `🔒 Nhập mật khẩu MỚI cho user hunghv:` ➔ **Nhập mật khẩu MỚI cần đổi**.
-3. `🔒 Xác nhận lại mật khẩu MỚI:` ➔ **Nhập lại mật khẩu MỚI** để xác nhận.
+1. `SSH password:` ➔ **Nhập mật khẩu SSH hiện tại của hunghv**.
+2. `BECOME password[sudo]:` ➔ **Nhập mật khẩu sudo hiện tại của hunghv**.
+3. `🔒 Nhập mật khẩu MỚI cho user hunghv:` ➔ **Nhập mật khẩu MỚI cần đổi**.
+4. `🔒 Xác nhận lại mật khẩu MỚI:` ➔ **Nhập lại mật khẩu MỚI** để xác nhận.
 
 Sau khi nhập xong, Ansible sẽ tự động chạy qua toàn bộ các server trong `inventory.ini`, đổi mật khẩu bằng `chpasswd` và kiểm tra xác thực quyền sudo ngay lập tức!
 
