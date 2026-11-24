@@ -2,14 +2,9 @@
 # ==============================================================================
 # Playbook đổi mật khẩu user hunghv trên danh sách VM
 #
-# Cách chạy:
-#   ansible-playbook site.yml -K
-#   hoặc:
-#   ansible-playbook site.yml -k -K
-#
-# Giải thích cờ:
-#   -K (--ask-become-pass) : Điền mật khẩu cũ để leo quyền sudo (tự dùng cho SSH nếu không gõ -k)
-#   -k (--ask-pass)        : Điền mật khẩu SSH cũ nếu mật khẩu SSH khác mật khẩu sudo
+# Cách chạy (KHÔNG CẦN GÕ -k hay -K, playbook sẽ tự hỏi mật khẩu):
+#   ansible-playbook site.yml -l 192.168.200.67
+#   (hoặc toàn bộ server: ansible-playbook site.yml)
 # ==============================================================================
 
 - name: Đổi mật khẩu user hunghv trên các VM
@@ -17,23 +12,23 @@
   gather_facts: false
 
   vars_prompt:
-    - name: input_new_password
-      prompt: "🔒 Nhập mật khẩu MỚI cho user hunghv"
+    - name: current_password
+      prompt: "🔑 Nhập mật khẩu HIỆN TẠI của user hunghv (dùng chung cho cả SSH và sudo)"
       private: true
-      default: ""
 
-    - name: input_confirm_password
+    - name: new_password
+      prompt: "🔒 Nhập mật khẩu MỚI cần đổi cho user hunghv"
+      private: true
+
+    - name: confirm_password
       prompt: "🔒 Xác nhận lại mật khẩu MỚI"
       private: true
-      default: ""
+
+  vars:
+    ansible_password: "{{ current_password }}"
+    ansible_become_password: "{{ current_password }}"
 
   pre_tasks:
-    - name: Xác định mật khẩu mới
-      ansible.builtin.set_fact:
-        new_password: "{{ new_password if (new_password | default('') | length > 0) else input_new_password }}"
-        confirm_password: "{{ confirm_password if (confirm_password | default('') | length > 0) else input_confirm_password }}"
-      no_log: true
-
     - name: Kiểm tra tính hợp lệ của mật khẩu mới
       ansible.builtin.fail:
         msg: >
@@ -44,9 +39,13 @@
           {% if confirm_password | length > 0 and new_password != confirm_password %}
           - Mật khẩu MỚI và mật khẩu XÁC NHẬN không khớp nhau!
           {% endif %}
+          {% if new_password == current_password %}
+          - Mật khẩu MỚI không được trùng với mật khẩu HIỆN TẠI!
+          {% endif %}
       when: >
         (new_password | length == 0) or
-        (confirm_password | length > 0 and new_password != confirm_password)
+        (confirm_password | length > 0 and new_password != confirm_password) or
+        (new_password == current_password)
       run_once: true
 
   roles:

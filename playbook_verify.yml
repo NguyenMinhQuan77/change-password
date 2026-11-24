@@ -1,17 +1,24 @@
 ---
 # ==============================================================================
 # Playbook kiểm tra kết nối SSH và quyền sudo của user hunghv
-# Dùng để verify trước hoặc sau khi đổi mật khẩu
 #
-# Cách chạy:
-#   ansible-playbook playbook_verify.yml -K
-#   hoặc:
-#   ansible-playbook playbook_verify.yml -k -K
+# Cách chạy (KHÔNG CẦN GÕ -k hay -K, playbook sẽ tự hỏi mật khẩu):
+#   ansible-playbook playbook_verify.yml -l 192.168.200.67
+#   (hoặc toàn bộ server: ansible-playbook playbook_verify.yml)
 # ==============================================================================
 
 - name: Kiểm tra xác thực SSH và sudo trên danh sách VM
   hosts: servers
   gather_facts: false
+
+  vars_prompt:
+    - name: current_password
+      prompt: "🔑 Nhập mật khẩu hiện tại của user hunghv (dùng chung cho cả SSH và sudo)"
+      private: true
+
+  vars:
+    ansible_password: "{{ current_password }}"
+    ansible_become_password: "{{ current_password }}"
 
   tasks:
     - name: Kiểm tra kết nối SSH (whoami)

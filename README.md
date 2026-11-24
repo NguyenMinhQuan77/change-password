@@ -1,6 +1,6 @@
 # Ansible: Đổi mật khẩu User hunghv trên các VM Linux
 
-Repository chuyên dụng chạy thủ công từ máy **`192.168.200.195`** để SSH vào danh sách các máy ảo (VM) khai báo trong `inventory.ini`, nâng quyền `sudo` và đổi mật khẩu mới cho user `hunghv`.
+Repository chuyên dụng chạy thủ công từ máy **`192.168.200.195`** (hoặc `jenkin-slave2`) để SSH vào danh sách các máy ảo (VM) khai báo trong `inventory.ini`, nâng quyền `sudo` và đổi mật khẩu mới cho user `hunghv`.
 
 ---
 
@@ -8,75 +8,64 @@ Repository chuyên dụng chạy thủ công từ máy **`192.168.200.195`** đ�
 
 ```text
 change_user_password/
-├── ansible.cfg                    # Cấu hình tối ưu SSH connection, forks=20, pipelining=True
-├── inventory.ini                  # Danh sách IP các VM cần đổi mật khẩu
-├── site.yml                       # Playbook chính thực hiện đổi mật khẩu
-├── playbook_verify.yml            # Playbook phụ kiểm tra SSH & sudo (không đổi mật khẩu)
+├── ansible.cfg          # Cấu hình SSH: forks=20 (chạy song song 20 server), pipelining=True
+├── inventory.ini        # Khai báo danh sách IP các máy ảo
+├── site.yml             # Playbook chính thực hiện đổi mật khẩu
+├── playbook_verify.yml  # Playbook phụ test SSH & sudo (không đổi mật khẩu)
 ├── group_vars/
-│   └── all.yml                    # Khai báo user (hunghv), tự động gán pass sudo cho SSH
+│   └── all.yml          # Cấu hình mặc định target_user=hunghv, ansible_user=hunghv
 ├── roles/
 │   └── change_password/
 │       └── tasks/
-│           └── main.yml           # Tasks: kiểm tra user, chpasswd qua stdin, verify sudo
-└── README.md                      # Hướng dẫn sử dụng
+│           └── main.yml # Tasks: kiểm tra user, chpasswd qua stdin, verify sudo
+└── README.md            # Hướng dẫn chi tiết
 ```
 
 ---
 
-## 🚀 Hướng dẫn sử dụng trên máy `192.168.200.195`
+## 🚀 Hướng dẫn sử dụng trên máy `192.168.200.195` (hoặc `jenkin-slave2`)
 
 ### 1. Chuẩn bị danh sách VM
 Mở file `inventory.ini` và thêm/bỏ chú thích (`#`) các IP máy chủ cần đổi:
 ```ini
 [servers]
-192.168.200.151
-192.168.200.152
+192.168.200.67
 192.168.200.154
 ...
 ```
 
 ---
 
-### 2. Chạy đổi mật khẩu bằng lệnh `ansible-playbook`
+### 2. Bước 1 (Khuyên dùng): Kiểm tra kết nối trước khi đổi
+Chạy playbook kiểm tra để chắc chắn mật khẩu hiện tại đăng nhập và sudo thành công:
 
-Chỉ cần chạy lệnh sau (dùng cả `-k` và `-K`):
 ```bash
-ansible-playbook site.yml -k -K
+# Kiểm tra thử trên 1 server cụ thể:
+ansible-playbook playbook_verify.yml -l 192.168.200.67
+
+# Hoặc kiểm tra toàn bộ server trong inventory:
+ansible-playbook playbook_verify.yml
 ```
-
-#### 👉 Giải thích:
-- `-k` (`--ask-pass`): Hỏi mật khẩu **SSH** của user `hunghv` để kết nối vào máy.
-- `-K` (`--ask-become-pass`): Hỏi mật khẩu **sudo** của user `hunghv` để nâng quyền root.
-*(Nếu mật khẩu SSH và mật khẩu sudo giống nhau, bạn chỉ cần gõ cùng một mật khẩu ở cả 2 câu hỏi).*
-
-#### 👉 Trình tự Ansible sẽ hỏi bạn:
-1. `SSH password:` ➔ **Nhập mật khẩu SSH hiện tại của hunghv**.
-2. `BECOME password[sudo]:` ➔ **Nhập mật khẩu sudo hiện tại của hunghv**.
-3. `🔒 Nhập mật khẩu MỚI cho user hunghv:` ➔ **Nhập mật khẩu MỚI cần đổi**.
-4. `🔒 Xác nhận lại mật khẩu MỚI:` ➔ **Nhập lại mật khẩu MỚI** để xác nhận.
-
-Sau khi nhập xong, Ansible sẽ tự động chạy qua toàn bộ các server trong `inventory.ini`, đổi mật khẩu bằng `chpasswd` và kiểm tra xác thực quyền sudo ngay lập tức!
+👉 **Playbook sẽ hỏi duy nhất 1 câu:**
+`🔑 Nhập mật khẩu hiện tại của user hunghv (dùng chung cho cả SSH và sudo):`
+*(Bạn chỉ cần gõ mật khẩu hiện tại của hunghv 1 lần duy nhất, Ansible sẽ tự dùng mật khẩu đó để vừa SSH vừa test quyền sudo).*
 
 ---
 
-### 3. Các tùy chọn chạy nâng cao
+### 3. Bước 2: Chạy đổi mật khẩu hàng loạt
+Khi đã kiểm tra OK, chạy playbook đổi mật khẩu:
 
-#### Chạy thử nghiệm trên 1 server cụ thể trước:
-Dùng cờ `-l <IP>` để test trước trên 1 server:
 ```bash
-ansible-playbook site.yml -K -l 192.168.200.154
+# Chạy thử nghiệm trên 1 server trước:
+ansible-playbook site.yml -l 192.168.200.67
+
+# Chạy cho toàn bộ danh sách server:
+ansible-playbook site.yml
 ```
 
-#### Chỉ kiểm tra SSH & sudo mà KHÔNG đổi mật khẩu:
-Dùng playbook `playbook_verify.yml` để kiểm tra kết nối với mật khẩu:
-```bash
-ansible-playbook playbook_verify.yml -K
-```
-*(Nhập mật khẩu khi được hỏi, Ansible sẽ kết nối và in ra trạng thái thành công của từng VM).*
+👉 **Playbook sẽ hỏi 3 câu:**
+1. `🔑 Nhập mật khẩu HIỆN TẠI của user hunghv:` ➔ Gõ pass cũ (dùng để SSH & sudo).
+2. `🔒 Nhập mật khẩu MỚI cần đổi cho user hunghv:` ➔ Gõ pass mới cần đặt.
+3. `🔒 Xác nhận lại mật khẩu MỚI:` ➔ Gõ lại pass mới để xác nhận.
 
----
-
-## 🔒 Cơ chế bảo mật
-- **`no_log: true`**: Đảm bảo mật khẩu không bao giờ bị lộ ra màn hình terminal hay file log.
-- **`chpasswd qua stdin`**: Không sử dụng chuỗi lệnh shell trực tiếp, do đó các mật khẩu chứa ký tự đặc biệt (`@`, `$`, `!`, `"`, `'`, `&`, `\`) không bao giờ bị lỗi hay mất ký tự.
-- **`Xác thực tự động`**: Ngay sau khi đổi, Ansible tự xóa cache `sudo -k` và kiểm tra `sudo whoami` với mật khẩu mới. Nếu sai hoặc lỗi, playbook sẽ báo đỏ ngay lập tức.
+Sau khi nhập xong, Ansible sẽ tự động kết nối qua toàn bộ server, dùng lệnh `chpasswd` đổi mật khẩu và xác thực ngay quyền sudo bằng mật khẩu mới!
